@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TurtleNES</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app-window">
+
+  <!-- Title bar -->
+  <table class="titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="titlebar-icon"><img src="assets/favicon.svg" width="16" height="16" alt=""></td>
+    <td class="titlebar-text">TurtleNES</td>
+    <td class="titlebar-btns">
+      <span class="tbtn" id="btn-minimize">_</span>
+      <span class="tbtn" id="btn-maximize">&#9633;</span>
+      <span class="tbtn tbtn-close" id="btn-about-close" title="About">X</span>
+    </td>
+  </tr></table>
+
+  <!-- Menu bar -->
+  <table class="menubar" cellspacing="0" cellpadding="0"><tr>
+    <td class="menu-item" data-menu="file">File</td>
+    <td class="menu-item" data-menu="emulation">Emulation</td>
+    <td class="menu-item" data-menu="video">Video</td>
+    <td class="menu-item" data-menu="audio">Audio</td>
+    <td class="menu-item" data-menu="input">Input</td>
+    <td class="menu-item" data-menu="tools">Tools</td>
+    <td class="menu-item" data-menu="help">Help</td>
+  </tr></table>
+
+  <!-- Dropdown menus (hidden unless active) -->
+  <div class="dropdown" id="menu-file">
+    <div class="dropdown-item" data-action="open-rom">Open ROM...<span class="shortcut">Ctrl+O</span></div>
+    <div class="dropdown-item disabled" data-action="open-recent">Open Recent</div>
+    <div class="dropdown-item" data-action="close-rom">Close ROM</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="save-state">Save State<span class="shortcut">F5</span></div>
+    <div class="dropdown-item" data-action="load-state">Load State<span class="shortcut">F7</span></div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="clear-sram">Clear Cartridge Save Data</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="exit">Exit</div>
+  </div>
+
+  <div class="dropdown" id="menu-emulation">
+    <div class="dropdown-item" data-action="run">Run<span class="shortcut">F1</span></div>
+    <div class="dropdown-item" data-action="pause">Pause<span class="shortcut">F2</span></div>
+    <div class="dropdown-item" data-action="reset">Reset<span class="shortcut">F3</span></div>
+    <div class="dropdown-item" data-action="stop">Stop</div>
+    <div class="dropdown-item" data-action="frame-advance">Frame Advance<span class="shortcut">F4</span></div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item disabled" data-action="speed">Speed &#9656;</div>
+    <div class="dropdown-item disabled" data-action="cheats">Cheats...</div>
+  </div>
+
+  <div class="dropdown" id="menu-video">
+    <div class="dropdown-item" data-action="scale-1">Scale 1x</div>
+    <div class="dropdown-item" data-action="scale-2">Scale 2x</div>
+    <div class="dropdown-item" data-action="scale-3">Scale 3x</div>
+    <div class="dropdown-item" data-action="scale-4">Scale 4x</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="fullscreen">Fullscreen<span class="shortcut">F11</span></div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item checkbox" data-action="toggle-integer-scaling" data-checked="1">
+      <span class="chk">&#10003;</span>Integer Scaling
+    </div>
+    <div class="dropdown-item disabled">Filter: Nearest</div>
+  </div>
+
+  <div class="dropdown" id="menu-audio">
+    <div class="dropdown-item checkbox" data-action="toggle-audio" data-checked="1">
+      <span class="chk">&#10003;</span>Enable Audio
+    </div>
+    <div class="dropdown-item checkbox" data-action="toggle-mute" data-checked="0">
+      <span class="chk">&#10003;</span>Mute
+    </div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item novolume">Volume:
+      <input type="range" id="volume-slider" min="0" max="100" value="70">
+    </div>
+  </div>
+
+  <div class="dropdown" id="menu-input">
+    <div class="dropdown-item" data-action="configure-p1">Configure Controller 1...</div>
+    <div class="dropdown-item" data-action="configure-p2">Configure Controller 2...</div>
+  </div>
+
+  <div class="dropdown" id="menu-tools">
+    <div class="dropdown-item" data-action="open-debugger">Debugger<span class="shortcut">F9</span></div>
+    <div class="dropdown-item" data-action="open-memviewer">Memory Viewer</div>
+    <div class="dropdown-item" data-action="open-ppuviewer">PPU Viewer</div>
+    <div class="dropdown-item" data-action="open-patterntables">Pattern Tables</div>
+    <div class="dropdown-item" data-action="open-nametables">Nametable Viewer</div>
+    <div class="dropdown-item" data-action="open-disasm">CPU Disassembly</div>
+  </div>
+
+  <div class="dropdown" id="menu-help">
+    <div class="dropdown-item" data-action="open-about">About TurtleNES</div>
+    <div class="dropdown-item" data-action="open-docs">Documentation</div>
+    <div class="dropdown-item" data-action="open-tutorial">Tutorial</div>
+  </div>
+
+  <!-- Toolbar -->
+  <table class="toolbar" cellspacing="0" cellpadding="0"><tr>
+    <td><button class="tool-btn" id="tb-run" title="Run">&#9654;</button></td>
+    <td><button class="tool-btn" id="tb-pause" title="Pause">&#10074;&#10074;</button></td>
+    <td><button class="tool-btn" id="tb-stop" title="Stop">&#9632;</button></td>
+    <td><button class="tool-btn" id="tb-reset" title="Reset">&#8635;</button></td>
+    <td class="toolbar-sep"></td>
+    <td><button class="tool-btn scale-btn" data-scale="1">1x</button></td>
+    <td><button class="tool-btn scale-btn" data-scale="2">2x</button></td>
+    <td><button class="tool-btn scale-btn" data-scale="3">3x</button></td>
+    <td class="toolbar-sep"></td>
+    <td><button class="tool-btn" id="tb-fullscreen">Fullscreen</button></td>
+  </tr></table>
+
+  <!-- Viewport -->
+  <div id="viewport-area">
+    <div id="no-rom-screen">
+      <img src="assets/turtle-hero.svg" width="180" height="150" alt="TurtleNES" id="hero-turtle" onerror="this.style.display='none'">
+      <div id="drop-hint">
+        Drop a .nes ROM file here<br>or use File &gt; Open ROM...
+      </div>
+      <button id="btn-open-rom-big">Open ROM...</button>
+    </div>
+    <div id="screen-wrap" style="display:none;">
+      <canvas id="screen" width="256" height="240"></canvas>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <table class="statusbar" cellspacing="0" cellpadding="0"><tr>
+    <td id="status-rom">No ROM loaded</td>
+    <td id="status-mapper"></td>
+    <td id="status-region">NTSC</td>
+    <td id="status-fps"></td>
+    <td id="status-speed"></td>
+  </tr></table>
+
+</div>
+
+<input type="file" id="file-input" accept=".nes" style="display:none;">
+
+<!-- ROM Information dialog -->
+<div class="win-dialog" id="dlg-rominfo" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">ROM Information</td>
+    <td class="dialog-close" data-close="dlg-rominfo">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <table class="info-table">
+      <tr><td class="info-label">Filename:</td><td id="info-filename">-</td></tr>
+      <tr><td class="info-label">Format:</td><td id="info-format">-</td></tr>
+      <tr><td class="info-label">Mapper:</td><td id="info-mapper">-</td></tr>
+      <tr><td class="info-label">PRG ROM:</td><td id="info-prg">-</td></tr>
+      <tr><td class="info-label">CHR ROM:</td><td id="info-chr">-</td></tr>
+      <tr><td class="info-label">Mirroring:</td><td id="info-mirroring">-</td></tr>
+      <tr><td class="info-label">Battery:</td><td id="info-battery">-</td></tr>
+      <tr><td class="info-label">Trainer:</td><td id="info-trainer">-</td></tr>
+    </table>
+    <div class="dialog-buttons"><button data-close="dlg-rominfo">Close</button></div>
+  </div>
+</div>
+
+<!-- About dialog -->
+<div class="win-dialog" id="dlg-about" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">About TurtleNES</td>
+    <td class="dialog-close" data-close="dlg-about">X</td>
+  </tr></table>
+  <div class="dialog-body about-body">
+    <img src="assets/turtle-logo.svg" width="80" height="66" alt="">
+    <div>
+      <p><b>TurtleNES</b></p>
+      <p>A Nintendo Entertainment System emulator, written from scratch in JavaScript.</p>
+      <p>No external emulator cores were used. The 6502 CPU, PPU, APU, and mappers are all implemented directly in this project.</p>
+      <p>This program does not include or distribute any commercial ROM files. Please use your own legally obtained ROM dumps.</p>
+    </div>
+    <div class="dialog-buttons"><button data-close="dlg-about">OK</button></div>
+  </div>
+</div>
+
+<!-- Error dialog -->
+<div class="win-dialog" id="dlg-error" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">TurtleNES</td>
+    <td class="dialog-close" data-close="dlg-error">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <div class="error-body">
+      <div class="error-icon">!</div>
+      <pre id="error-message"></pre>
+    </div>
+    <div class="dialog-buttons"><button data-close="dlg-error">OK</button></div>
+  </div>
+</div>
+
+<!-- Input configuration dialog -->
+<div class="win-dialog" id="dlg-input" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Configure Controller</td>
+    <td class="dialog-close" data-close="dlg-input">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <table class="info-table" id="input-config-table"></table>
+    <p class="input-hint">Click a button below, then press the key you want to map to it.</p>
+    <div class="dialog-buttons">
+      <button data-action="input-defaults">Defaults</button>
+      <button data-close="dlg-input">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Debugger window -->
+<div class="win-dialog debugger-dialog" id="dlg-debugger" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">CPU Debugger</td>
+    <td class="dialog-close" data-close="dlg-debugger">X</td>
+  </tr></table>
+  <div class="dialog-body debugger-body">
+    <table class="debugger-layout"><tr>
+      <td class="debugger-disasm">
+        <div class="panel-label">Disassembly</div>
+        <div class="disasm-list" id="disasm-list"></div>
+      </td>
+      <td class="debugger-regs">
+        <div class="panel-label">Registers</div>
+        <table class="reg-table" id="reg-table">
+          <tr><td>A</td><td id="reg-a">00</td></tr>
+          <tr><td>X</td><td id="reg-x">00</td></tr>
+          <tr><td>Y</td><td id="reg-y">00</td></tr>
+          <tr><td>SP</td><td id="reg-sp">00</td></tr>
+          <tr><td>PC</td><td id="reg-pc">0000</td></tr>
+          <tr><td>P</td><td id="reg-p">00</td></tr>
+        </table>
+        <div class="panel-label">Flags</div>
+        <div class="flags-row" id="flags-row"></div>
+        <div class="panel-label">PPU</div>
+        <table class="reg-table" id="ppu-reg-table">
+          <tr><td>Scanline</td><td id="ppu-scanline">0</td></tr>
+          <tr><td>Dot</td><td id="ppu-dot">0</td></tr>
+          <tr><td>Frame</td><td id="ppu-frame">0</td></tr>
+        </table>
+      </td>
+    </tr></table>
+    <table class="debugger-toolbar"><tr>
+      <td><button id="dbg-step">Step</button></td>
+      <td><button id="dbg-run">Run</button></td>
+      <td><button id="dbg-break">Break</button></td>
+      <td><button id="dbg-reset">Reset</button></td>
+      <td class="dbg-cycles">CPU Cycles: <span id="dbg-cycles">0</span></td>
+    </tr></table>
+  </div>
+</div>
+
+<!-- Memory viewer -->
+<div class="win-dialog" id="dlg-memviewer" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Memory Viewer</td>
+    <td class="dialog-close" data-close="dlg-memviewer">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <div class="mem-controls">
+      Page: <input type="text" id="mem-page-input" value="0000" maxlength="4" size="5">
+      <button id="mem-goto">Go</button>
+    </div>
+    <pre class="mem-view" id="mem-view"></pre>
+  </div>
+</div>
+
+<!-- Pattern table viewer -->
+<div class="win-dialog" id="dlg-patterntables" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Pattern Tables</td>
+    <td class="dialog-close" data-close="dlg-patterntables">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <table><tr>
+      <td><div class="panel-label">Table $0000</div><canvas id="pt-canvas-0" width="128" height="128"></canvas></td>
+      <td><div class="panel-label">Table $1000</div><canvas id="pt-canvas-1" width="128" height="128"></canvas></td>
+    </tr></table>
+    <div class="panel-label">Palette</div>
+    <div id="pt-palette-select"></div>
+  </div>
+</div>
+
+<!-- Nametable viewer -->
+<div class="win-dialog" id="dlg-nametables" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Nametable Viewer</td>
+    <td class="dialog-close" data-close="dlg-nametables">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <canvas id="nt-canvas" width="512" height="480"></canvas>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
