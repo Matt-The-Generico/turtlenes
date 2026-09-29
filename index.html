@@ -33,19 +33,23 @@
     <td class="menu-item" data-menu="help">Help</td>
   </tr></table>
 
-  <!-- Dropdown menus (hidden unless active) -->
   <div class="dropdown" id="menu-file">
     <div class="dropdown-item" data-action="open-rom">Open ROM...<span class="shortcut">Ctrl+O</span></div>
-    <div class="dropdown-item disabled" data-action="open-recent">Open Recent</div>
+    <div class="dropdown-item has-sub" data-sub="sub-recent">Open Recent<span class="arrow">&#9656;</span></div>
     <div class="dropdown-item" data-action="close-rom">Close ROM</div>
     <div class="dropdown-sep"></div>
     <div class="dropdown-item" data-action="save-state">Save State<span class="shortcut">F5</span></div>
     <div class="dropdown-item" data-action="load-state">Load State<span class="shortcut">F7</span></div>
+    <div class="dropdown-item" data-action="delete-state">Delete Save State</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="export-state">Export Save State...</div>
+    <div class="dropdown-item" data-action="import-state">Import Save State...</div>
     <div class="dropdown-sep"></div>
     <div class="dropdown-item" data-action="clear-sram">Clear Cartridge Save Data</div>
     <div class="dropdown-sep"></div>
     <div class="dropdown-item" data-action="exit">Exit</div>
   </div>
+  <div class="dropdown" id="sub-recent"></div>
 
   <div class="dropdown" id="menu-emulation">
     <div class="dropdown-item" data-action="run">Run<span class="shortcut">F1</span></div>
@@ -54,31 +58,47 @@
     <div class="dropdown-item" data-action="stop">Stop</div>
     <div class="dropdown-item" data-action="frame-advance">Frame Advance<span class="shortcut">F4</span></div>
     <div class="dropdown-sep"></div>
-    <div class="dropdown-item disabled" data-action="speed">Speed &#9656;</div>
-    <div class="dropdown-item disabled" data-action="cheats">Cheats...</div>
+    <div class="dropdown-item has-sub" data-sub="sub-speed">Speed<span class="arrow">&#9656;</span></div>
+    <div class="dropdown-item" data-action="open-rewind">Rewind...<span class="shortcut">Backspace</span></div>
+    <div class="dropdown-item" data-action="open-cheats">Cheats...</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="open-cpucompat">CPU Compatibility...</div>
+  </div>
+  <div class="dropdown" id="sub-speed">
+    <div class="dropdown-item radio" data-action="speed" data-value="0.5" data-state="speed:0.5"><span class="chk"></span>0.5x</div>
+    <div class="dropdown-item radio" data-action="speed" data-value="1" data-state="speed:1"><span class="chk"></span>1x (normal)</div>
+    <div class="dropdown-item radio" data-action="speed" data-value="2" data-state="speed:2"><span class="chk"></span>2x</div>
+    <div class="dropdown-item radio" data-action="speed" data-value="4" data-state="speed:4"><span class="chk"></span>4x</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="speed-more">More...</div>
   </div>
 
   <div class="dropdown" id="menu-video">
-    <div class="dropdown-item" data-action="scale-1">Scale 1x</div>
-    <div class="dropdown-item" data-action="scale-2">Scale 2x</div>
-    <div class="dropdown-item" data-action="scale-3">Scale 3x</div>
-    <div class="dropdown-item" data-action="scale-4">Scale 4x</div>
+    <div class="dropdown-item radio" data-action="scale" data-value="1" data-state="scale:1"><span class="chk"></span>Scale 1x</div>
+    <div class="dropdown-item radio" data-action="scale" data-value="2" data-state="scale:2"><span class="chk"></span>Scale 2x</div>
+    <div class="dropdown-item radio" data-action="scale" data-value="3" data-state="scale:3"><span class="chk"></span>Scale 3x</div>
+    <div class="dropdown-item radio" data-action="scale" data-value="4" data-state="scale:4"><span class="chk"></span>Scale 4x</div>
     <div class="dropdown-sep"></div>
     <div class="dropdown-item" data-action="fullscreen">Fullscreen<span class="shortcut">F11</span></div>
+    <div class="dropdown-item has-sub" data-sub="sub-fsmode">Fullscreen Mode<span class="arrow">&#9656;</span></div>
     <div class="dropdown-sep"></div>
-    <div class="dropdown-item checkbox" data-action="toggle-integer-scaling" data-checked="1">
-      <span class="chk">&#10003;</span>Integer Scaling
-    </div>
-    <div class="dropdown-item disabled">Filter: Nearest</div>
+    <div class="dropdown-item has-sub" data-sub="sub-filter">Filter<span class="arrow">&#9656;</span></div>
+  </div>
+  <div class="dropdown" id="sub-fsmode">
+    <div class="dropdown-item radio" data-action="fsmode" data-value="normal" data-state="fsmode:normal"><span class="chk"></span>Normal (current scale)</div>
+    <div class="dropdown-item radio" data-action="fsmode" data-value="square" data-state="fsmode:square"><span class="chk"></span>Square (whole pixels)</div>
+    <div class="dropdown-item radio" data-action="fsmode" data-value="aspect" data-state="fsmode:aspect"><span class="chk"></span>Keep Aspect Ratio</div>
+    <div class="dropdown-item radio" data-action="fsmode" data-value="fill" data-state="fsmode:fill"><span class="chk"></span>Fill Screen</div>
+  </div>
+  <div class="dropdown" id="sub-filter">
+    <div class="dropdown-item radio" data-action="filter" data-value="nearest" data-state="filter:nearest"><span class="chk"></span>Nearest</div>
+    <div class="dropdown-item radio" data-action="filter" data-value="linear" data-state="filter:linear"><span class="chk"></span>Linear</div>
+    <div class="dropdown-item radio" data-action="filter" data-value="scanlines" data-state="filter:scanlines"><span class="chk"></span>Scanlines</div>
+    <div class="dropdown-item radio" data-action="filter" data-value="crt" data-state="filter:crt"><span class="chk"></span>CRT</div>
   </div>
 
   <div class="dropdown" id="menu-audio">
-    <div class="dropdown-item checkbox" data-action="toggle-audio" data-checked="1">
-      <span class="chk">&#10003;</span>Enable Audio
-    </div>
-    <div class="dropdown-item checkbox" data-action="toggle-mute" data-checked="0">
-      <span class="chk">&#10003;</span>Mute
-    </div>
+    <div class="dropdown-item check" data-action="toggle-mute" data-state="mute"><span class="chk"></span>Mute Audio</div>
     <div class="dropdown-sep"></div>
     <div class="dropdown-item novolume">Volume:
       <input type="range" id="volume-slider" min="0" max="100" value="70">
@@ -88,6 +108,8 @@
   <div class="dropdown" id="menu-input">
     <div class="dropdown-item" data-action="configure-p1">Configure Controller 1...</div>
     <div class="dropdown-item" data-action="configure-p2">Configure Controller 2...</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item check" data-action="toggle-inputdisplay" data-state="inputdisplay"><span class="chk"></span>Input Display</div>
   </div>
 
   <div class="dropdown" id="menu-tools">
@@ -97,6 +119,8 @@
     <div class="dropdown-item" data-action="open-patterntables">Pattern Tables</div>
     <div class="dropdown-item" data-action="open-nametables">Nametable Viewer</div>
     <div class="dropdown-item" data-action="open-disasm">CPU Disassembly</div>
+    <div class="dropdown-sep"></div>
+    <div class="dropdown-item" data-action="open-rominfo">ROM Information...</div>
   </div>
 
   <div class="dropdown" id="menu-help">
@@ -117,6 +141,11 @@
     <td><button class="tool-btn scale-btn" data-scale="3">3x</button></td>
     <td class="toolbar-sep"></td>
     <td><button class="tool-btn" id="tb-fullscreen">Fullscreen</button></td>
+    <td class="toolbar-sep"></td>
+    <td><button class="tool-btn" id="tb-inputdisplay" title="Show or hide the controller input display">Pads</button></td>
+    <td><button class="tool-btn" id="tb-rewind" title="Hold to rewind (or hold Backspace)">Rewind</button></td>
+    <td><button class="tool-btn" id="tb-savestate" title="Save state (F5)">Save</button></td>
+    <td><button class="tool-btn" id="tb-loadstate" title="Load state (F7)">Load</button></td>
   </tr></table>
 
   <!-- Viewport -->
@@ -129,7 +158,11 @@
       <button id="btn-open-rom-big">Open ROM...</button>
     </div>
     <div id="screen-wrap" style="display:none;">
-      <canvas id="screen" width="256" height="240"></canvas>
+      <div id="screen-stage" data-filter="nearest">
+        <canvas id="screen" width="256" height="240"></canvas>
+        <div id="screen-fx"></div>
+      </div>
+      <div id="screen-toast"></div>
     </div>
   </div>
 
@@ -140,11 +173,15 @@
     <td id="status-region">NTSC</td>
     <td id="status-fps"></td>
     <td id="status-speed"></td>
+    <td id="status-audio">Audio: On</td>
+    <td id="status-state">State: empty</td>
   </tr></table>
+  <div id="status-msg"></div>
 
 </div>
 
 <input type="file" id="file-input" accept=".nes" style="display:none;">
+<input type="file" id="state-input" accept=".tnesstate,.json" style="display:none;">
 
 <!-- ROM Information dialog -->
 <div class="win-dialog" id="dlg-rominfo" style="display:none;">
@@ -167,24 +204,6 @@
   </div>
 </div>
 
-<!-- About dialog -->
-<div class="win-dialog" id="dlg-about" style="display:none;">
-  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
-    <td class="dialog-title">About TurtleNES</td>
-    <td class="dialog-close" data-close="dlg-about">X</td>
-  </tr></table>
-  <div class="dialog-body about-body">
-    <img src="assets/turtle-logo.svg" width="80" height="66" alt="">
-    <div>
-      <p><b>TurtleNES</b></p>
-      <p>A Nintendo Entertainment System emulator, written from scratch in JavaScript.</p>
-      <p>No external emulator cores were used. The 6502 CPU, PPU, APU, and mappers are all implemented directly in this project.</p>
-      <p>This program does not include or distribute any commercial ROM files. Please use your own legally obtained ROM dumps.</p>
-    </div>
-    <div class="dialog-buttons"><button data-close="dlg-about">OK</button></div>
-  </div>
-</div>
-
 <!-- Error dialog -->
 <div class="win-dialog" id="dlg-error" style="display:none;">
   <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
@@ -197,22 +216,6 @@
       <pre id="error-message"></pre>
     </div>
     <div class="dialog-buttons"><button data-close="dlg-error">OK</button></div>
-  </div>
-</div>
-
-<!-- Input configuration dialog -->
-<div class="win-dialog" id="dlg-input" style="display:none;">
-  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
-    <td class="dialog-title">Configure Controller</td>
-    <td class="dialog-close" data-close="dlg-input">X</td>
-  </tr></table>
-  <div class="dialog-body">
-    <table class="info-table" id="input-config-table"></table>
-    <p class="input-hint">Click a button below, then press the key you want to map to it.</p>
-    <div class="dialog-buttons">
-      <button data-action="input-defaults">Defaults</button>
-      <button data-close="dlg-input">Close</button>
-    </div>
   </div>
 </div>
 
@@ -297,6 +300,150 @@
   </tr></table>
   <div class="dialog-body">
     <canvas id="nt-canvas" width="512" height="480"></canvas>
+  </div>
+</div>
+
+<!-- About dialog -->
+<div class="win-dialog" id="dlg-about" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">About TurtleNES</td>
+    <td class="dialog-close" data-close="dlg-about">X</td>
+  </tr></table>
+  <div class="dialog-body about-body">
+    <img src="assets/turtle-logo.svg" width="80" height="66" alt="">
+    <div>
+      <p><b>TurtleNES v<span id="about-version">1.1</span></b></p>
+      <p>A Nintendo Entertainment System emulator, written from scratch in JavaScript.</p>
+      <p>No external emulator cores were used. The 6502 CPU, PPU, APU, and mappers are all implemented directly in this project.</p>
+      <p>This program does not include or distribute any commercial ROM files. Please use your own legally obtained ROM dumps.</p>
+    </div>
+    <div class="dialog-buttons"><button data-close="dlg-about">OK</button></div>
+  </div>
+</div>
+
+<!-- Generic message dialog -->
+<div class="win-dialog" id="dlg-message" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title" id="msg-title">TurtleNES</td>
+    <td class="dialog-close" data-close="dlg-message">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <div class="error-body">
+      <div class="info-icon">i</div>
+      <pre id="msg-text"></pre>
+    </div>
+    <div class="dialog-buttons"><button id="msg-ok">OK</button><button id="msg-cancel" data-close="dlg-message">Cancel</button></div>
+  </div>
+</div>
+
+<!-- Input configuration dialog -->
+<div class="win-dialog" id="dlg-input" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title" id="input-title">Configure Controller 1</td>
+    <td class="dialog-close" data-close="dlg-input">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <div class="tab-row">
+      <button class="tab-btn" id="tab-p1">Controller 1</button>
+      <button class="tab-btn" id="tab-p2">Controller 2</button>
+    </div>
+    <table class="info-table" id="input-config-table"></table>
+    <p class="input-hint" id="input-hint">Click a button name, then press the key to bind. Esc cancels.</p>
+    <div class="dialog-buttons">
+      <button id="input-defaults">Defaults</button>
+      <button data-close="dlg-input">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Input display (non-modal) -->
+<div class="win-dialog" id="dlg-inputdisplay" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Input Display</td>
+    <td class="dialog-close" data-close="dlg-inputdisplay">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <div id="pads-holder"></div>
+  </div>
+</div>
+
+<!-- CPU compatibility dialog -->
+<div class="win-dialog" id="dlg-cpucompat" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">CPU Compatibility</td>
+    <td class="dialog-close" data-close="dlg-cpucompat">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <fieldset class="group-box">
+      <legend>Instruction set</legend>
+      <label class="radio-line"><input type="radio" name="cpu-opcodes" id="cpu-official" value="official"> Official opcodes only</label>
+      <label class="radio-line"><input type="radio" name="cpu-opcodes" id="cpu-unofficial" value="unofficial"> Enable undocumented opcodes</label>
+    </fieldset>
+    <p class="help-text">Undocumented opcodes are side effects of the 6502 design that the manufacturer never documented (LAX, SAX, DCP, ISC, SLO, RLA, SRE, RRA and others). A few games and test programs use them. Leave this on "Official opcodes only" unless a game needs the extras. With official-only mode, running an undocumented opcode halts the CPU.</p>
+    <div class="dialog-buttons">
+      <button id="cpu-apply">OK</button>
+      <button data-close="dlg-cpucompat">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Speed dialog -->
+<div class="win-dialog" id="dlg-speed" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Custom Speed</td>
+    <td class="dialog-close" data-close="dlg-speed">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <p>Emulation speed (0.1 to 10):</p>
+    <p><input type="text" id="speed-input" size="6" value="1.0"> x</p>
+    <p class="help-text">Audio is muted while the speed is not 1x.</p>
+    <div class="dialog-buttons">
+      <button id="speed-apply">OK</button>
+      <button data-close="dlg-speed">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rewind dialog -->
+<div class="win-dialog" id="dlg-rewind" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Rewind</td>
+    <td class="dialog-close" data-close="dlg-rewind">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <label class="radio-line"><input type="checkbox" id="rewind-enabled"> Record rewind history while running</label>
+    <p>History length:
+      <select id="rewind-seconds">
+        <option value="10">10 seconds</option>
+        <option value="30">30 seconds</option>
+        <option value="60">60 seconds</option>
+        <option value="120">120 seconds</option>
+      </select>
+    </p>
+    <div class="panel-label">Timeline</div>
+    <input type="range" id="rewind-slider" min="0" max="0" value="0" style="width:300px;">
+    <p id="rewind-info" class="help-text">No history yet.</p>
+    <p class="help-text">Hold Backspace (or the Rewind toolbar button) to rewind. Drag the timeline to jump to a point, then press Run to continue from there.</p>
+    <div class="dialog-buttons">
+      <button id="rewind-run">Run</button>
+      <button data-close="dlg-rewind">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cheats dialog -->
+<div class="win-dialog" id="dlg-cheats" style="display:none;">
+  <table class="dialog-titlebar" cellspacing="0" cellpadding="0"><tr>
+    <td class="dialog-title">Cheats</td>
+    <td class="dialog-close" data-close="dlg-cheats">X</td>
+  </tr></table>
+  <div class="dialog-body">
+    <div class="cheat-list" id="cheat-list"></div>
+    <p>Code: <input type="text" id="cheat-code" size="14" placeholder="0300:FF"> Name: <input type="text" id="cheat-label" size="16">
+      <button id="cheat-add">Add</button></p>
+    <p class="help-text" id="cheat-error"></p>
+    <p class="help-text">Format: AAAA:VV writes hex value VV to address AAAA every frame. AAAA:VV?CC only writes while the byte currently equals CC. Addresses must be in work RAM ($0000-$1FFF) or cartridge RAM ($6000-$7FFF). Cheats never change the ROM and are not part of save states.</p>
+    <div class="dialog-buttons"><button data-close="dlg-cheats">Close</button></div>
   </div>
 </div>
 

@@ -42,6 +42,7 @@ const { prg } = parseINes(romBuf);
 const bus = new NestestBus(prg);
 const cpu = new CPU6502(bus);
 cpu.reset();
+if (process.argv.includes('--unofficial')) cpu.unofficialOpcodesEnabled = true;
 // Automation entry point (documented nestest usage): force PC to $C000
 // and match the documented initial register state instead of relying on
 // the reset vector, which points at the interactive (PPU-driven) mode.

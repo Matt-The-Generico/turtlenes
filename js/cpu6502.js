@@ -59,8 +59,10 @@ export class CPU6502 {
     this.currentAddrMode = '';
     this.instructionCount = 0;
     this._extraCycles = 0;
+    this.unofficialOpcodesEnabled = false;
 
     this._buildTable();
+    this._buildUnofficialTable();
   }
 
   // ---- Bus helpers -------------------------------------------------
@@ -218,7 +220,8 @@ export class CPU6502 {
     this.currentOpcode = opcode;
     this.pc = (this.pc + 1) & 0xffff;
 
-    const entry = this.table[opcode];
+    let entry = this.table[opcode];
+    if (!entry && this.unofficialOpcodesEnabled) entry = this.unofficialTable[opcode];
     if (!entry) {
       this.jammed = true;
       this.jamOpcode = opcode;
@@ -352,26 +355,23 @@ export class CPU6502 {
   opPLP() { this.p = (this.pop() & ~FLAG_B) | FLAG_U; }
 
   // Arithmetic
-  opADC(m) {
-    const val = this._fetch(m);
+  // Shared core: adds `value` (a raw unsigned byte) plus carry into A.
+  // ADC uses this directly; RRA (unofficial) rotates memory then adds the
+  // rotated value the same way real MMC-derived hardware does.
+  _adcCore(value) {
     const carryIn = this.getFlag(FLAG_C) ? 1 : 0;
-    const sum = this.a + val + carryIn;
+    const sum = this.a + value + carryIn;
     this.setFlag(FLAG_C, sum > 0xff);
     const result = sum & 0xff;
-    this.setFlag(FLAG_V, (~(this.a ^ val) & (this.a ^ result) & 0x80) !== 0);
+    this.setFlag(FLAG_V, (~(this.a ^ value) & (this.a ^ result) & 0x80) !== 0);
     this.a = result;
     this.setZN(this.a);
   }
-  opSBC(m) {
-    const val = this._fetch(m) ^ 0xff;
-    const carryIn = this.getFlag(FLAG_C) ? 1 : 0;
-    const sum = this.a + val + carryIn;
-    this.setFlag(FLAG_C, sum > 0xff);
-    const result = sum & 0xff;
-    this.setFlag(FLAG_V, (~(this.a ^ val) & (this.a ^ result) & 0x80) !== 0);
-    this.a = result;
-    this.setZN(this.a);
-  }
+  // Subtraction is addition of the one's complement; ISC (unofficial)
+  // increments memory then subtracts the incremented value the same way.
+  _sbcCore(value) { this._adcCore(value ^ 0xff); }
+  opADC(m) { this._adcCore(this._fetch(m)); }
+  opSBC(m) { this._sbcCore(this._fetch(m)); }
   opINC(m) { const v = (this._fetch(m) + 1) & 0xff; this.write(m.addr, v); this.setZN(v); }
   opDEC(m) { const v = (this._fetch(m) - 1) & 0xff; this.write(m.addr, v); this.setZN(v); }
   opINX() { this.x = (this.x + 1) & 0xff; this.setZN(this.x); }
@@ -626,10 +626,152 @@ export class CPU6502 {
     this.table = T;
   }
 
+  // ---- Unofficial (undocumented) 6502 opcodes -------------------------
+  // These combine two official operations into one opcode, a side effect
+  // of how the 6502's ALU control lines happen to be wired. Some real
+  // games (and parts of test ROMs such as nestest) rely on them. Off by
+  // default; the CPU only executes these when `unofficialOpcodesEnabled`
+  // is set, so official-only behavior is unchanged unless opted into.
+  opLAX(m) { const v = this._fetch(m); this.a = v; this.x = v; this.setZN(v); }
+  opSAX(m) { this.write(m.addr, this.a & this.x); }
+  opDCP(m) { const v = (this._fetch(m) - 1) & 0xff; this.write(m.addr, v); this._cmp(this.a, v); }
+  opISC(m) { const v = (this._fetch(m) + 1) & 0xff; this.write(m.addr, v); this._sbcCore(v); }
+  opSLO(m) {
+    const v = this._fetch(m);
+    this.setFlag(FLAG_C, (v & 0x80) !== 0);
+    const r = (v << 1) & 0xff;
+    this.write(m.addr, r);
+    this.a |= r;
+    this.setZN(this.a);
+  }
+  opRLA(m) {
+    const v = this._fetch(m);
+    const carryIn = this.getFlag(FLAG_C) ? 1 : 0;
+    this.setFlag(FLAG_C, (v & 0x80) !== 0);
+    const r = ((v << 1) | carryIn) & 0xff;
+    this.write(m.addr, r);
+    this.a &= r;
+    this.setZN(this.a);
+  }
+  opSRE(m) {
+    const v = this._fetch(m);
+    this.setFlag(FLAG_C, (v & 0x01) !== 0);
+    const r = v >> 1;
+    this.write(m.addr, r);
+    this.a ^= r;
+    this.setZN(this.a);
+  }
+  opRRA(m) {
+    const v = this._fetch(m);
+    const carryIn = this.getFlag(FLAG_C) ? 0x80 : 0;
+    this.setFlag(FLAG_C, (v & 0x01) !== 0);
+    const r = (v >> 1) | carryIn;
+    this.write(m.addr, r);
+    this._adcCore(r);
+  }
+  opANC(m) {
+    this.a &= this._fetch(m);
+    this.setZN(this.a);
+    this.setFlag(FLAG_C, (this.a & 0x80) !== 0);
+  }
+  opALR(m) {
+    this.a &= this._fetch(m);
+    this.setFlag(FLAG_C, (this.a & 0x01) !== 0);
+    this.a >>= 1;
+    this.setZN(this.a);
+  }
+  opARR(m) {
+    this.a &= this._fetch(m);
+    const carryIn = this.getFlag(FLAG_C) ? 0x80 : 0;
+    this.a = (this.a >> 1) | carryIn;
+    this.setZN(this.a);
+    this.setFlag(FLAG_C, (this.a & 0x40) !== 0);
+    this.setFlag(FLAG_V, (((this.a >> 6) ^ (this.a >> 5)) & 0x01) !== 0);
+  }
+  opAXS(m) {
+    const v = this._fetch(m);
+    const anded = this.a & this.x;
+    this.setFlag(FLAG_C, anded >= v);
+    this.x = (anded - v) & 0xff;
+    this.setZN(this.x);
+  }
+
+  _buildUnofficialTable() {
+    const T = new Array(256).fill(null);
+    const IMP = this.amIMP, IMM = this.amIMM, ZP0 = this.amZP0,
+      ZPX = this.amZPX, ZPY = this.amZPY, ABS = this.amABS, ABX = this.amABX,
+      ABY = this.amABY, IZX = this.amIZX, IZY = this.amIZY;
+    const entry = (opcode, mnemonic, addrFn, addrLabel, cycles, pageCheck, opFn) => {
+      T[opcode] = { name: mnemonic, addr: addrFn, mode: addrLabel, op: opFn, cycles, pageCheck };
+    };
+
+    // LAX: load A and X at once
+    entry(0xA7,'LAX',ZP0,'ZP0',3,false,this.opLAX); entry(0xB7,'LAX',ZPY,'ZPY',4,false,this.opLAX);
+    entry(0xAF,'LAX',ABS,'ABS',4,false,this.opLAX); entry(0xBF,'LAX',ABY,'ABY',4,true,this.opLAX);
+    entry(0xA3,'LAX',IZX,'IZX',6,false,this.opLAX); entry(0xB3,'LAX',IZY,'IZY',5,true,this.opLAX);
+    // SAX: store A AND X
+    entry(0x87,'SAX',ZP0,'ZP0',3,false,this.opSAX); entry(0x97,'SAX',ZPY,'ZPY',4,false,this.opSAX);
+    entry(0x8F,'SAX',ABS,'ABS',4,false,this.opSAX); entry(0x83,'SAX',IZX,'IZX',6,false,this.opSAX);
+    // DCP: DEC then CMP (fixed cycle cost, no page-cross bonus, matching real RMW timing)
+    entry(0xC7,'DCP',ZP0,'ZP0',5,false,this.opDCP); entry(0xD7,'DCP',ZPX,'ZPX',6,false,this.opDCP);
+    entry(0xCF,'DCP',ABS,'ABS',6,false,this.opDCP); entry(0xDF,'DCP',ABX,'ABX',7,false,this.opDCP);
+    entry(0xDB,'DCP',ABY,'ABY',7,false,this.opDCP); entry(0xC3,'DCP',IZX,'IZX',8,false,this.opDCP);
+    entry(0xD3,'DCP',IZY,'IZY',8,false,this.opDCP);
+    // ISC/ISB: INC then SBC
+    entry(0xE7,'ISC',ZP0,'ZP0',5,false,this.opISC); entry(0xF7,'ISC',ZPX,'ZPX',6,false,this.opISC);
+    entry(0xEF,'ISC',ABS,'ABS',6,false,this.opISC); entry(0xFF,'ISC',ABX,'ABX',7,false,this.opISC);
+    entry(0xFB,'ISC',ABY,'ABY',7,false,this.opISC); entry(0xE3,'ISC',IZX,'IZX',8,false,this.opISC);
+    entry(0xF3,'ISC',IZY,'IZY',8,false,this.opISC);
+    // SLO: ASL then ORA
+    entry(0x07,'SLO',ZP0,'ZP0',5,false,this.opSLO); entry(0x17,'SLO',ZPX,'ZPX',6,false,this.opSLO);
+    entry(0x0F,'SLO',ABS,'ABS',6,false,this.opSLO); entry(0x1F,'SLO',ABX,'ABX',7,false,this.opSLO);
+    entry(0x1B,'SLO',ABY,'ABY',7,false,this.opSLO); entry(0x03,'SLO',IZX,'IZX',8,false,this.opSLO);
+    entry(0x13,'SLO',IZY,'IZY',8,false,this.opSLO);
+    // RLA: ROL then AND
+    entry(0x27,'RLA',ZP0,'ZP0',5,false,this.opRLA); entry(0x37,'RLA',ZPX,'ZPX',6,false,this.opRLA);
+    entry(0x2F,'RLA',ABS,'ABS',6,false,this.opRLA); entry(0x3F,'RLA',ABX,'ABX',7,false,this.opRLA);
+    entry(0x3B,'RLA',ABY,'ABY',7,false,this.opRLA); entry(0x23,'RLA',IZX,'IZX',8,false,this.opRLA);
+    entry(0x33,'RLA',IZY,'IZY',8,false,this.opRLA);
+    // SRE: LSR then EOR
+    entry(0x47,'SRE',ZP0,'ZP0',5,false,this.opSRE); entry(0x57,'SRE',ZPX,'ZPX',6,false,this.opSRE);
+    entry(0x4F,'SRE',ABS,'ABS',6,false,this.opSRE); entry(0x5F,'SRE',ABX,'ABX',7,false,this.opSRE);
+    entry(0x5B,'SRE',ABY,'ABY',7,false,this.opSRE); entry(0x43,'SRE',IZX,'IZX',8,false,this.opSRE);
+    entry(0x53,'SRE',IZY,'IZY',8,false,this.opSRE);
+    // RRA: ROR then ADC
+    entry(0x67,'RRA',ZP0,'ZP0',5,false,this.opRRA); entry(0x77,'RRA',ZPX,'ZPX',6,false,this.opRRA);
+    entry(0x6F,'RRA',ABS,'ABS',6,false,this.opRRA); entry(0x7F,'RRA',ABX,'ABX',7,false,this.opRRA);
+    entry(0x7B,'RRA',ABY,'ABY',7,false,this.opRRA); entry(0x63,'RRA',IZX,'IZX',8,false,this.opRRA);
+    entry(0x73,'RRA',IZY,'IZY',8,false,this.opRRA);
+    // Immediate combined-op opcodes
+    entry(0x0B,'ANC',IMM,'IMM',2,false,this.opANC); entry(0x2B,'ANC',IMM,'IMM',2,false,this.opANC);
+    entry(0x4B,'ALR',IMM,'IMM',2,false,this.opALR); entry(0x6B,'ARR',IMM,'IMM',2,false,this.opARR);
+    entry(0xCB,'AXS',IMM,'IMM',2,false,this.opAXS);
+    entry(0xEB,'SBC',IMM,'IMM',2,false,this.opSBC); // duplicate of the official SBC immediate
+    // NOPs with various addressing modes (operands fetched and discarded)
+    entry(0x1A,'NOP',IMP,'IMP',2,false,this.opNOP); entry(0x3A,'NOP',IMP,'IMP',2,false,this.opNOP);
+    entry(0x5A,'NOP',IMP,'IMP',2,false,this.opNOP); entry(0x7A,'NOP',IMP,'IMP',2,false,this.opNOP);
+    entry(0xDA,'NOP',IMP,'IMP',2,false,this.opNOP); entry(0xFA,'NOP',IMP,'IMP',2,false,this.opNOP);
+    entry(0x80,'NOP',IMM,'IMM',2,false,this.opNOP); entry(0x82,'NOP',IMM,'IMM',2,false,this.opNOP);
+    entry(0x89,'NOP',IMM,'IMM',2,false,this.opNOP); entry(0xC2,'NOP',IMM,'IMM',2,false,this.opNOP);
+    entry(0xE2,'NOP',IMM,'IMM',2,false,this.opNOP);
+    entry(0x04,'NOP',ZP0,'ZP0',3,false,this.opNOP); entry(0x44,'NOP',ZP0,'ZP0',3,false,this.opNOP);
+    entry(0x64,'NOP',ZP0,'ZP0',3,false,this.opNOP);
+    entry(0x14,'NOP',ZPX,'ZPX',4,false,this.opNOP); entry(0x34,'NOP',ZPX,'ZPX',4,false,this.opNOP);
+    entry(0x54,'NOP',ZPX,'ZPX',4,false,this.opNOP); entry(0x74,'NOP',ZPX,'ZPX',4,false,this.opNOP);
+    entry(0xD4,'NOP',ZPX,'ZPX',4,false,this.opNOP); entry(0xF4,'NOP',ZPX,'ZPX',4,false,this.opNOP);
+    entry(0x0C,'NOP',ABS,'ABS',4,false,this.opNOP);
+    entry(0x1C,'NOP',ABX,'ABX',4,true,this.opNOP); entry(0x3C,'NOP',ABX,'ABX',4,true,this.opNOP);
+    entry(0x5C,'NOP',ABX,'ABX',4,true,this.opNOP); entry(0x7C,'NOP',ABX,'ABX',4,true,this.opNOP);
+    entry(0xDC,'NOP',ABX,'ABX',4,true,this.opNOP); entry(0xFC,'NOP',ABX,'ABX',4,true,this.opNOP);
+
+    this.unofficialTable = T;
+  }
+
   // ---- Disassembly (for the debugger UI) ------------------------------
   disassembleAt(addr) {
     const opcode = this.read(addr);
-    const entry = this.table[opcode];
+    let entry = this.table[opcode];
+    if (!entry && this.unofficialOpcodesEnabled) entry = this.unofficialTable[opcode];
     if (!entry) return { text: `$${addr.toString(16).padStart(4,'0').toUpperCase()}  ??? (${opcode.toString(16)})`, length: 1 };
     let len = 1;
     let operandText = '';

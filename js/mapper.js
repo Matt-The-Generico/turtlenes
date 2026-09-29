@@ -9,9 +9,13 @@
  *   ppuRead(addr)        - addr in $0000-$1FFF (pattern tables)
  *   ppuWrite(addr, val)  - addr in $0000-$1FFF (only meaningful for CHR RAM)
  *   mirrorNametable(addr) -> physical nametable index 0-3, for $2000-$2FFF
- *   notifyScanline()     - called once per visible/pre-render scanline
- *                          (only meaningful to mappers with scanline IRQs,
- *                          e.g. MMC3); a simplified but effective model.
+ *   notifyScanline()     - legacy per-scanline hook (rendering enabled,
+ *                          once per visible/pre-render scanline); kept
+ *                          for simple future mappers. MMC3 no longer
+ *                          uses this.
+ *   notifyA12Rise()      - called on a real PPU-A12 rising edge (see
+ *                          ppu.js's `_fetchPatternByte`); this is what
+ *                          MMC3 uses for its scanline IRQ counter.
  *   irqPending           - boolean, mapper is asserting IRQ
  *   clearIrq()
  *
@@ -338,11 +342,12 @@ class MMC3 extends MapperBase {
   ppuRead(addr) { return this.cart.chr[this._chrOffset(addr) % this.cart.chr.length]; }
   ppuWrite(addr, val) { if (this.chrIsRam) this.cart.chr[this._chrOffset(addr) % this.cart.chr.length] = val; }
 
-  // Simplified scanline-based IRQ model: the PPU calls this once per
-  // visible/pre-render scanline while rendering is enabled, which is a
-  // widely-used approximation of the real A12-rising-edge counter and is
-  // accurate enough for the overwhelming majority of MMC3 software.
-  notifyScanline() {
+  // Clocked from a real PPU-A12 rising edge (see ppu.js's
+  // `_fetchPatternByte`), not a per-scanline approximation. Games that
+  // toggle CTRL_BG_TABLE/CTRL_SPRITE_TABLE mid-scanline for split-screen
+  // effects get correctly-timed extra clocks, matching real hardware
+  // instead of being locked to one IRQ check per scanline.
+  notifyA12Rise() {
     if (this.irqCounter === 0 || this.irqReload) {
       this.irqCounter = this.irqLatch;
       this.irqReload = false;
@@ -355,19 +360,162 @@ class MMC3 extends MapperBase {
   }
 }
 
+// ---- Mapper 7: AxROM -----------------------------------------------------
+// Single 32KB switchable PRG bank, CHR is always RAM (8KB), and the same
+// register that selects the PRG bank also picks which single nametable
+// page the whole screen mirrors from (bit 4).
+class AxROM extends MapperBase {
+  constructor(cart) {
+    super(cart);
+    this.prgBank32k = 0;
+    this.prgBankCount32k = Math.max(1, Math.floor(cart.prg.length / 32768));
+    this.singleScreenB = false;
+    if (!cart.chrIsRam && cart.chr.length === 0) {
+      cart.chrIsRam = true;
+      cart.chr = new Uint8Array(8192);
+    }
+  }
+  mirrorNametable() { return this.singleScreenB ? 1 : 0; }
+  cpuRead(addr) {
+    if (addr >= 0x6000 && addr < 0x8000) return this.prgRam[addr - 0x6000];
+    if (addr < 0x8000) return 0;
+    return this.cart.prg[this.prgBank32k * 32768 + (addr - 0x8000)];
+  }
+  cpuWrite(addr, val) {
+    if (addr >= 0x6000 && addr < 0x8000) { this.prgRam[addr - 0x6000] = val; return; }
+    if (addr < 0x8000) return;
+    this.prgBank32k = (val & 0x07) % this.prgBankCount32k;
+    this.singleScreenB = (val & 0x10) !== 0;
+  }
+}
+
+// ---- Mapper 9: MMC2 (Punch-Out!!) -----------------------------------------
+// 8KB switchable PRG bank at $8000-$9FFF, three fixed 8KB banks filling
+// $A000-$FFFF (the cartridge's last three banks). CHR is split into two
+// 4KB windows, each with two selectable banks; which bank is currently
+// visible in each window is controlled by a hardware "latch" that flips
+// automatically when the PPU fetches specific tile IDs ($FD or $FE) at
+// specific addresses -- the mechanism Punch-Out!! uses for its large
+// character sprites within an 8x8-tile background engine.
+class MMC2 extends MapperBase {
+  constructor(cart) {
+    super(cart);
+    this.prgBankCount8k = Math.max(1, Math.floor(cart.prg.length / 8192));
+    this.prgBank = 0;
+    this.chrBank0Fd = 0; this.chrBank0Fe = 0;
+    this.chrBank1Fd = 0; this.chrBank1Fe = 0;
+    this.latch0 = 0xfe; // selects which of chrBank0Fd/Fe feeds $0000-$0FFF
+    this.latch1 = 0xfe; // selects which of chrBank1Fd/Fe feeds $1000-$1FFF
+    this.mirrorVertical = true;
+  }
+  mirrorNametable(addr) {
+    const table = (addr - 0x2000) & 0x0fff;
+    const region = table >> 10;
+    return this.mirrorVertical ? (region & 0x01) : (region >> 1);
+  }
+  cpuRead(addr) {
+    if (addr >= 0x6000 && addr < 0x8000) return this.prgRam[addr - 0x6000];
+    if (addr < 0x8000) return 0;
+    if (addr < 0xa000) {
+      return this.cart.prg[(this.prgBank % this.prgBankCount8k) * 8192 + (addr - 0x8000)];
+    }
+    // Fixed: last three 8KB banks, in order, filling $A000-$FFFF.
+    const fixedIndex = Math.floor((addr - 0xa000) / 8192); // 0,1,2
+    const bank = this.prgBankCount8k - 3 + fixedIndex;
+    return this.cart.prg[Math.max(0, bank) * 8192 + ((addr - 0xa000) & 0x1fff)];
+  }
+  cpuWrite(addr, val) {
+    if (addr >= 0x6000 && addr < 0x8000) { this.prgRam[addr - 0x6000] = val; return; }
+    if (addr < 0xa000) return;
+    if (addr < 0xb000) { this.prgBank = val & 0x0f; return; }
+    if (addr < 0xc000) { this.chrBank0Fd = val & 0x1f; return; }
+    if (addr < 0xd000) { this.chrBank0Fe = val & 0x1f; return; }
+    if (addr < 0xe000) { this.chrBank1Fd = val & 0x1f; return; }
+    if (addr < 0xf000) { this.chrBank1Fe = val & 0x1f; return; }
+    this.mirrorVertical = (val & 0x01) === 0;
+  }
+  _updateLatch(addr) {
+    if (addr >= 0x0fd8 && addr <= 0x0fdf) this.latch0 = 0xfd;
+    else if (addr >= 0x0fe8 && addr <= 0x0fef) this.latch0 = 0xfe;
+    else if (addr >= 0x1fd8 && addr <= 0x1fdf) this.latch1 = 0xfd;
+    else if (addr >= 0x1fe8 && addr <= 0x1fef) this.latch1 = 0xfe;
+  }
+  ppuRead(addr) {
+    const chrBankCount4k = Math.max(1, Math.floor(this.cart.chr.length / 4096));
+    let bank;
+    if (addr < 0x1000) bank = (this.latch0 === 0xfd ? this.chrBank0Fd : this.chrBank0Fe);
+    else bank = (this.latch1 === 0xfd ? this.chrBank1Fd : this.chrBank1Fe);
+    const offset = (bank % chrBankCount4k) * 4096 + (addr & 0x0fff);
+    const value = this.cart.chr[offset % this.cart.chr.length];
+    this._updateLatch(addr);
+    return value;
+  }
+  ppuWrite(addr, val) {
+    if (!this.cart.chrIsRam) return;
+    const chrBankCount4k = Math.max(1, Math.floor(this.cart.chr.length / 4096));
+    let bank;
+    if (addr < 0x1000) bank = (this.latch0 === 0xfd ? this.chrBank0Fd : this.chrBank0Fe);
+    else bank = (this.latch1 === 0xfd ? this.chrBank1Fd : this.chrBank1Fe);
+    const offset = (bank % chrBankCount4k) * 4096 + (addr & 0x0fff);
+    this.cart.chr[offset % this.cart.chr.length] = val;
+  }
+}
+
+// ---- Mapper 11: Color Dreams ---------------------------------------------
+// One write-anywhere register: low nibble selects a 32KB PRG bank, high
+// nibble selects an 8KB CHR bank. No mirroring control (fixed from header).
+class ColorDreams extends MapperBase {
+  constructor(cart) {
+    super(cart);
+    this.prgBank32k = 0;
+    this.chrBank8k = 0;
+    this.prgBankCount32k = Math.max(1, Math.floor(cart.prg.length / 32768));
+    this.chrBankCount8k = Math.max(1, Math.floor(cart.chr.length / 8192));
+  }
+  cpuRead(addr) {
+    if (addr >= 0x6000 && addr < 0x8000) return this.prgRam[addr - 0x6000];
+    if (addr < 0x8000) return 0;
+    return this.cart.prg[this.prgBank32k * 32768 + (addr - 0x8000)];
+  }
+  cpuWrite(addr, val) {
+    if (addr >= 0x6000 && addr < 0x8000) { this.prgRam[addr - 0x6000] = val; return; }
+    if (addr < 0x8000) return;
+    this.prgBank32k = (val & 0x03) % this.prgBankCount32k;
+    this.chrBank8k = ((val >> 4) & 0x0f) % this.chrBankCount8k;
+  }
+  ppuRead(addr) {
+    if (this.cart.chrIsRam) return this.cart.chr[addr];
+    return this.cart.chr[this.chrBank8k * 8192 + addr];
+  }
+  ppuWrite(addr, val) {
+    if (this.cart.chrIsRam) this.cart.chr[this.chrBank8k * 8192 + addr] = val;
+  }
+}
+
 const MAPPER_REGISTRY = {
   0: NROM,
   1: MMC1,
   2: UxROM,
   3: CNROM,
   4: MMC3,
+  7: AxROM,
+  9: MMC2,
+  11: ColorDreams,
+};
+
+const MAPPER_NAMES = {
+  0: 'NROM', 1: 'MMC1', 2: 'UxROM', 3: 'CNROM', 4: 'MMC3',
+  7: 'AxROM', 9: 'MMC2', 11: 'Color Dreams',
 };
 
 export function createMapper(cart) {
   const Ctor = MAPPER_REGISTRY[cart.mapperNumber];
   if (!Ctor) {
+    const supportedList = Object.keys(MAPPER_REGISTRY)
+      .map(Number).sort((a, b) => a - b)
+      .map(n => `${n} (${MAPPER_NAMES[n]})`).join(', ');
     throw new RomLoadError(
-      `Unsupported mapper: ${cart.mapperNumber}\n\nThis ROM uses mapper ${cart.mapperNumber}, which this emulator does not currently support. Supported mappers: 0 (NROM), 1 (MMC1), 2 (UxROM), 3 (CNROM), 4 (MMC3).`,
+      `Unsupported mapper: ${cart.mapperNumber}\n\nThis ROM uses mapper ${cart.mapperNumber}, which this emulator does not currently support. Supported mappers: ${supportedList}.`,
       'unsupported-mapper'
     );
   }

@@ -144,6 +144,7 @@ export class Cartridge {
   describe() {
     const mapperNames = {
       0: 'NROM', 1: 'MMC1', 2: 'UxROM', 3: 'CNROM', 4: 'MMC3',
+      7: 'AxROM', 9: 'MMC2', 11: 'Color Dreams',
     };
     return {
       filename: this.filename,

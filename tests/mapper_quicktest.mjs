@@ -75,5 +75,54 @@ function fakeCart({ mapperNumber, prgBanks16k, chrBanks8k, chrIsRam = false }) {
   assertEq(m.cpuRead(0x8000), 3, 'MMC3: R6 write correctly banks in at $8000 (PRG mode 0)');
 }
 
+// --- AxROM: 32KB PRG bank switch + single-screen mirror select ---
+{
+  const cart = fakeCart({ mapperNumber: 7, prgBanks16k: 8, chrBanks8k: 0, chrIsRam: true });
+  const m = createMapper(cart);
+  assertEq(m.cpuRead(0x8000), 0, 'AxROM: bank 0 selected by default');
+  m.cpuWrite(0x8000, 0x02); // select bank 2, single-screen A
+  assertEq(m.cpuRead(0x8000), 4, 'AxROM: switched to 32KB bank 2 (byte-offset 65536, stamped as 16KB-bank 4)');
+  assertEq(m.mirrorNametable(0x2400), 0, 'AxROM: single-screen A maps all nametables to slot 0');
+  m.cpuWrite(0x8000, 0x12); // same bank, single-screen B (bit4 set)
+  assertEq(m.mirrorNametable(0x2c00), 1, 'AxROM: single-screen B maps all nametables to slot 1');
+}
+
+// --- MMC2: fixed last-three-banks PRG, latch-driven CHR banking ---
+{
+  const cart = new Cartridge();
+  cart.mapperNumber = 9;
+  cart.mirroring = MIRROR.VERTICAL;
+  cart.prg = new Uint8Array(8 * 8192);
+  for (let b = 0; b < 8; b++) cart.prg[b * 8192] = b;
+  cart.chr = new Uint8Array(8 * 4096);
+  for (let b = 0; b < 8; b++) cart.chr[b * 4096] = b + 0x10;
+  const m = createMapper(cart);
+  assertEq(m.cpuRead(0xa000), 5, 'MMC2: $A000 fixed to third-from-last bank (5) at power-on');
+  assertEq(m.cpuRead(0xc000), 6, 'MMC2: $C000 fixed to second-from-last bank (6)');
+  assertEq(m.cpuRead(0xe000), 7, 'MMC2: $E000 fixed to LAST bank (7)');
+  m.cpuWrite(0xa000, 3); // switchable $8000-$9FFF -> bank 3
+  assertEq(m.cpuRead(0x8000), 3, 'MMC2: $8000 reflects switched-in bank 3');
+
+  // CHR latch behavior: default latch state is 0xFE for both windows.
+  m.cpuWrite(0xb000, 1); // chrBank0Fe... wait $B000 is Fd bank; set both to know values
+  m.cpuWrite(0xb000, 1); // chr0 (latch=FD) = bank 1
+  m.cpuWrite(0xc000, 2); // chr0 (latch=FE) = bank 2
+  assertEq(m.ppuRead(0x0000), 0x12, 'MMC2: reads bank 2 in $0000 region at default latch (FE)');
+  // Fetching tile $FD's marker address flips latch0 to FD.
+  m.ppuRead(0x0fd8);
+  assertEq(m.ppuRead(0x0000), 0x11, 'MMC2: latch flip to FD switches in bank 1');
+}
+
+// --- Color Dreams: 32KB PRG + 8KB CHR from one combined register ---
+{
+  const cart = fakeCart({ mapperNumber: 11, prgBanks16k: 4, chrBanks8k: 4 });
+  const m = createMapper(cart);
+  assertEq(m.cpuRead(0x8000), 0, 'Color Dreams: PRG bank 0 by default');
+  assertEq(m.ppuRead(0), 0x40, 'Color Dreams: CHR bank 0 by default');
+  m.cpuWrite(0x8000, 0x21); // PRG bank 1, CHR bank 2
+  assertEq(m.cpuRead(0x8000), 2, 'Color Dreams: PRG bank switched to 1 (byte-offset 32768, stamped as 16KB-bank 2)');
+  assertEq(m.ppuRead(0), 0x42, 'Color Dreams: CHR bank switched to 2');
+}
+
 console.log(failures === 0 ? '\nALL MAPPER QUICK TESTS PASSED' : `\n${failures} TEST(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

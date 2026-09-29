@@ -100,6 +100,7 @@ export class PPU {
     this.framebuffer = new Uint8ClampedArray(256 * 240 * 4);
 
     this.suppressNmiThisFrame = false;
+    this._a12Line = false; // tracks PPU address bus bit 12, for MMC3-class mapper IRQs
   }
 
   reset() {
@@ -255,6 +256,24 @@ export class PPU {
   }
   _renderingEnabled() { return (this.mask & (MASK_BG_ENABLE | MASK_SPRITE_ENABLE)) !== 0; }
 
+  // Real MMC3-class mappers derive their scanline IRQ counter from the
+  // PPU address bus's A12 line (bit 0x1000), which only changes value on
+  // actual pattern-table fetches -- the two calls below are the only
+  // places the PPU fetches pattern data during rendering, so tracking
+  // A12 here (rather than at the generic bus-read level, which would
+  // also see CPU-driven $2007 pokes) gives a faithful edge signal without
+  // needing an artificial noise filter. Only tracked while rendering is
+  // enabled, matching real hardware pausing the fetch pipeline when off.
+  _fetchPatternByte(addr) {
+    if (!this.mapper) return 0;
+    if (this._renderingEnabled()) {
+      const a12 = (addr & 0x1000) !== 0;
+      if (a12 && !this._a12Line && this.mapper.notifyA12Rise) this.mapper.notifyA12Rise();
+      this._a12Line = a12;
+    }
+    return this.mapper.ppuRead(addr);
+  }
+
   _loadBackgroundShifters() {
     this.bgShiftPatternLo = (this.bgShiftPatternLo & 0xff00) | this.nextTileLsb;
     this.bgShiftPatternHi = (this.bgShiftPatternHi & 0xff00) | this.nextTileMsb;
@@ -328,8 +347,8 @@ export class PPU {
         if (flipV) row = 7 - row;
       }
       const addr = patternTable + tileNum * 16 + row;
-      let lo = this.mapper ? this.mapper.ppuRead(addr) : 0;
-      let hi = this.mapper ? this.mapper.ppuRead(addr + 8) : 0;
+      let lo = this._fetchPatternByte(addr);
+      let hi = this._fetchPatternByte(addr + 8);
       if (flipH) {
         lo = this._reverseBits(lo);
         hi = this._reverseBits(hi);
@@ -444,14 +463,14 @@ export class PPU {
             const fineY = (this.v >> 12) & 0x07;
             const table = (this.ctrl & CTRL_BG_TABLE) ? 0x1000 : 0x0000;
             const addr = table + this.nextTileId * 16 + fineY;
-            this.nextTileLsb = this.mapper ? this.mapper.ppuRead(addr) : 0;
+            this.nextTileLsb = this._fetchPatternByte(addr);
             break;
           }
           case 6: {
             const fineY = (this.v >> 12) & 0x07;
             const table = (this.ctrl & CTRL_BG_TABLE) ? 0x1000 : 0x0000;
             const addr = table + this.nextTileId * 16 + fineY + 8;
-            this.nextTileMsb = this.mapper ? this.mapper.ppuRead(addr) : 0;
+            this.nextTileMsb = this._fetchPatternByte(addr);
             break;
           }
           case 7:
@@ -466,6 +485,9 @@ export class PPU {
       if (this.dot === 257 && this.scanline >= 0) {
         this._evaluateSprites();
         this._fetchSpritePatterns();
+        // Legacy per-scanline hook, kept for any future mapper that wants
+        // scanline-granularity IRQs instead of true A12 edges; MMC3 now
+        // drives its IRQ counter from `_fetchPatternByte`'s edge detector.
         if (this.mapper && this.mapper.notifyScanline && this._renderingEnabled()) {
           this.mapper.notifyScanline();
         }

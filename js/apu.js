@@ -444,4 +444,62 @@ export class APU {
     this.sampleBuffer.length = 0;
     return arr;
   }
+
+  // Serializable snapshot of all channel/sequencer state (not the pending
+  // output sample queue, which is transient).
+  getState() {
+    return {
+      pulse1: snapshotObject(this.pulse1),
+      pulse2: snapshotObject(this.pulse2),
+      triangle: snapshotObject(this.triangle),
+      noise: snapshotObject(this.noise),
+      dmc: snapshotObject(this.dmc),
+      frameSequenceMode: this.frameSequenceMode,
+      frameIrqInhibit: this.frameIrqInhibit,
+      frameIrqPending: this.frameIrqPending,
+      frameStep: this.frameStep,
+      cpuCyclesSinceFrameClock: this.cpuCyclesSinceFrameClock,
+      cycleCount: this.cycleCount,
+      sampleAccum: this._sampleAccum,
+    };
+  }
+
+  setState(s) {
+    if (!s) return;
+    restoreObject(this.pulse1, s.pulse1);
+    restoreObject(this.pulse2, s.pulse2);
+    restoreObject(this.triangle, s.triangle);
+    restoreObject(this.noise, s.noise);
+    restoreObject(this.dmc, s.dmc);
+    this.frameSequenceMode = s.frameSequenceMode;
+    this.frameIrqInhibit = s.frameIrqInhibit;
+    this.frameIrqPending = s.frameIrqPending;
+    this.frameStep = s.frameStep;
+    this.cpuCyclesSinceFrameClock = s.cpuCyclesSinceFrameClock;
+    this.cycleCount = s.cycleCount;
+    this._sampleAccum = s.sampleAccum || 0;
+    this.sampleBuffer.length = 0;
+  }
+}
+
+// Copies primitive fields and nested plain objects (envelope, sweep).
+// Skips the `bus` back-reference and any functions.
+function snapshotObject(obj) {
+  const out = {};
+  for (const key of Object.keys(obj)) {
+    if (key === 'bus') continue;
+    const v = obj[key];
+    if (v === null || typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string') out[key] = v;
+    else if (typeof v === 'object') out[key] = snapshotObject(v);
+  }
+  return out;
+}
+
+function restoreObject(target, src) {
+  if (!src) return;
+  for (const key of Object.keys(src)) {
+    const v = src[key];
+    if (v !== null && typeof v === 'object') restoreObject(target[key], v);
+    else target[key] = v;
+  }
 }

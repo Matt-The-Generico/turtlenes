@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TurtleNES Documentation</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<style>
+  body { margin: 0; padding: 10px; background: #3a6ea5; font-family: Tahoma, "MS Sans Serif", Geneva, Arial, sans-serif; font-size: 12px; color: #000; }
+  #doc { max-width: 760px; margin: 0 auto; background: #d4d0c8; border: 2px solid #fff; border-right-color: #404040; border-bottom-color: #404040; }
+  .bar { background: linear-gradient(to right, #0a246a, #3a6ea5 60%, #a6caf0); color: #fff; font-weight: bold; padding: 3px 6px; }
+  .body { padding: 10px 16px 16px 16px; background: #fff; margin: 4px; border: 2px inset #808080; line-height: 1.45; }
+  h1 { font-size: 18px; margin: 4px 0 8px 0; }
+  h2 { font-size: 14px; margin: 18px 0 4px 0; padding-bottom: 2px; border-bottom: 1px solid #808080; color: #0a246a; }
+  code, pre { font-family: "Courier New", monospace; font-size: 11px; background: #f0efe9; }
+  pre { padding: 6px; border: 1px solid #c0bcb4; overflow-x: auto; }
+  table { border-collapse: collapse; margin: 6px 0; }
+  td, th { border: 1px solid #a0a0a0; padding: 2px 8px; font-size: 11px; text-align: left; }
+  th { background: #e8e4dc; }
+  a { color: #0000cc; }
+  .toc a { margin-right: 10px; }
+  .foot { padding: 4px 8px 6px 8px; font-size: 10px; color: #333; }
+</style>
+</head>
+<body>
+<div id="doc">
+<div class="bar">TurtleNES Documentation (v1.1)</div>
+<div class="body">
+
+<h1>TurtleNES</h1>
+<p>A Nintendo Entertainment System emulator written from scratch in JavaScript. It runs entirely in your browser. Your ROM files never leave your computer.</p>
+<p class="toc">
+<a href="#quick-start">Quick start</a>
+<a href="#controls">Controls</a>
+<a href="#input-display">Input display</a>
+<a href="#save-states">Save states</a>
+<a href="#rewind">Rewind</a>
+<a href="#speed">Speed</a>
+<a href="#cheats">Cheats</a>
+<a href="#video">Video</a>
+<a href="#recent">Recent ROMs</a>
+<a href="#cpu">CPU compatibility</a>
+<a href="#mappers">Mappers</a>
+<a href="#limits">Limitations</a>
+</p>
+
+<h2 id="quick-start">Quick start</h2>
+<ol>
+<li>Choose <b>File &gt; Open ROM...</b> (or press Ctrl+O), or drag a <code>.nes</code> file onto the window.</li>
+<li>Play with the keyboard. The default keys are listed below.</li>
+<li>Press F5 to save a state and F7 to load it again. This is instant and does not open any dialog.</li>
+<li>Use <b>Tools &gt; Debugger</b> to inspect the emulated hardware.</li>
+</ol>
+<p>TurtleNES does not include any commercial games. You need to supply your own ROM files.</p>
+
+<h2 id="controls">Controls and controller configuration</h2>
+<table>
+<tr><th>NES button</th><th>Player 1</th><th>Player 2</th></tr>
+<tr><td>D-pad</td><td>Arrow keys</td><td>I, K, J, L</td></tr>
+<tr><td>A</td><td>Z</td><td>O</td></tr>
+<tr><td>B</td><td>X</td><td>U</td></tr>
+<tr><td>Select</td><td>Shift</td><td>N</td></tr>
+<tr><td>Start</td><td>Enter</td><td>M</td></tr>
+</table>
+<p>Open <b>Input &gt; Configure Controller 1</b> or <b>Controller 2</b>. The window lists the keys that are actually bound right now. Click <b>Change</b> next to a button and press the new key. The new binding is used by the game immediately. Choosing a key that another button uses moves it to the new button. F-keys, Escape and Backspace are reserved for emulator shortcuts. <b>Defaults</b> restores the original keys for the selected controller. Bindings are remembered by your browser.</p>
+
+<h2 id="input-display">Input display</h2>
+<p>Turn on <b>Input &gt; Input Display</b> (or the Pads toolbar button) to show both controllers. Each button lights up while it is pressed, and shows the key that is currently bound to it.</p>
+
+<h2 id="save-states">Save states</h2>
+<p><b>Save State</b> (F5) and <b>Load State</b> (F7) use one quick slot per game. They are instant and never open a file picker. A message in the status bar and on the screen tells you what happened, and the status bar shows when the slot was last written. Saving again replaces the slot ("State overwritten"). <b>Delete Save State</b> empties it. The slot is remembered by your browser between visits.</p>
+<p><b>Export Save State...</b> downloads the saved state as a <code>.tnesstate</code> file (or the current state if the slot is empty). <b>Import Save State...</b> loads such a file, or you can drop it on the window. The file contains the CPU, memory, PPU, sound chip, cartridge mapper and controller state, and the identity of the ROM. A state made for a different ROM is refused with an error message. Importing does not touch the quick slot.</p>
+<p>Battery-backed game saves (the ones games make themselves) are separate. They are kept automatically per game, and <b>Clear Cartridge Save Data</b> removes them.</p>
+
+<h2 id="rewind">Rewind</h2>
+<p>While a game runs, TurtleNES keeps a short history of snapshots. Hold <b>Backspace</b> (or the Rewind toolbar button) to run time backwards, and release to continue from that point. <b>Emulation &gt; Rewind...</b> lets you turn recording off, choose the history length (10 to 120 seconds), and drag a timeline to jump to any moment. The history is limited in size, and the window shows how much memory it uses.</p>
+
+<h2 id="speed">Speed</h2>
+<p><b>Emulation &gt; Speed</b> offers 0.5x, 1x, 2x, 4x and a custom value from 0.1x to 10x. The emulator really runs more or fewer frames per second. Sound is switched off whenever the speed is not 1x, because sped-up audio is not useful. Very high speeds depend on how fast your computer is; the status bar shows the real frame rate.</p>
+
+<h2 id="cheats">Cheats</h2>
+<p><b>Emulation &gt; Cheats...</b> holds a list of RAM cheats for the current game. Each cheat can be switched on and off or removed. Cheats are remembered per game, are separate from save states, and never change the ROM.</p>
+<pre>AAAA:VV        write hex value VV to address AAAA every frame
+AAAA:VV?CC     same, but only while the byte at AAAA equals CC</pre>
+<p>Example: <code>0075:09</code> keeps the byte at address $0075 at 9. Addresses must be in work RAM ($0000 to $1FFF) or cartridge RAM ($6000 to $7FFF). Game Genie and Pro Action Replay codes are not supported.</p>
+
+<h2 id="video">Video: scale, filters and fullscreen</h2>
+<p><b>Video &gt; Scale</b> picks the window size. <b>Video &gt; Filter</b> has four choices:</p>
+<table>
+<tr><td>Nearest</td><td>Sharp pixels (default)</td></tr>
+<tr><td>Linear</td><td>Smooth scaling</td></tr>
+<tr><td>Scanlines</td><td>Sharp pixels with dark lines between rows</td></tr>
+<tr><td>CRT</td><td>Soft picture, mild scanlines, slightly boosted colour and a gentle edge shadow</td></tr>
+</table>
+<p><b>Fullscreen</b> (F11) uses the mode chosen in <b>Video &gt; Fullscreen Mode</b>. The picture is always centred on a black background.</p>
+<table>
+<tr><td>Normal</td><td>The current window scale, centred (reduced only if the screen is too small)</td></tr>
+<tr><td>Square</td><td>The largest whole-number multiple of 256x240 that fits, so every pixel is the same size</td></tr>
+<tr><td>Keep Aspect Ratio</td><td>As large as possible without distortion, with black bars where needed</td></tr>
+<tr><td>Fill Screen</td><td>Stretches to the whole screen (this distorts the picture)</td></tr>
+</table>
+
+<h2 id="recent">Open Recent</h2>
+<p><b>File &gt; Open Recent</b> lists the last ROMs you opened with their mapper and when you opened them. In browsers that let a page keep permission for a file (such as Chrome and Edge), choosing an entry reopens the file, possibly after asking for permission. In other browsers, or if access was lost, TurtleNES tells you so and asks you to select the file again. Only the file name and details are stored, never the ROM data.</p>
+
+<h2 id="cpu">CPU compatibility: undocumented opcodes</h2>
+<p>The 6502 processor responds to many opcodes that its manufacturer never documented, such as LAX, SAX, DCP, ISC, SLO, RLA, SRE, RRA, ANC, ALR, ARR and AXS, plus extra NOP forms. Some games and test programs use them. They are <b>off by default</b>. Turn them on under <b>Emulation &gt; CPU Compatibility...</b>. With them off, executing one halts the CPU, as in earlier versions. Turning them on changes nothing for programs that only use official opcodes.</p>
+
+<h2 id="mappers">Supported mappers</h2>
+<table>
+<tr><th>Number</th><th>Name</th><th>Notes</th></tr>
+<tr><td>0</td><td>NROM</td><td></td></tr>
+<tr><td>1</td><td>MMC1</td><td></td></tr>
+<tr><td>2</td><td>UxROM</td><td></td></tr>
+<tr><td>3</td><td>CNROM</td><td></td></tr>
+<tr><td>4</td><td>MMC3</td><td>IRQ counter is clocked from PPU address line A12 edges</td></tr>
+<tr><td>7</td><td>AxROM</td><td>Single-screen mirroring select</td></tr>
+<tr><td>9</td><td>MMC2</td><td>CHR latches (Punch-Out!!)</td></tr>
+<tr><td>11</td><td>Color Dreams</td><td></td></tr>
+</table>
+<p>A ROM that needs any other mapper is refused with a message naming the mapper.</p>
+
+<h2 id="limits">Limitations</h2>
+<ul>
+<li>Not every NES game works. Compatibility is limited to the mappers above and the accuracy of the PPU and APU.</li>
+<li>Mid-scanline PPU tricks that need exact PPU bus timing may glitch.</li>
+<li>The sprite overflow flag does not reproduce the real chip's hardware bug.</li>
+<li>Sound quality is a straightforward mix of the five channels without hardware filtering.</li>
+</ul>
+
+</div>
+<div class="foot">TurtleNES v1.1. <a href="index.html">Back to the emulator</a></div>
+</div>
+</body>
+</html>
